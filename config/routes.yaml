@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../vendor/symfony/routing/Loader/schema/routing.schema.json
+
+api_tasks:
+    resource: '../src/Controller/TaskApiController.php'
+    type: attribute
+
+web_tasks:
+    resource: '../src/Controller/TaskWebController.php'
+    type: attribute

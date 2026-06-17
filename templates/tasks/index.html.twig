@@ -1,0 +1,543 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Tâches — Task Manager{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .task-card {
+        transition: box-shadow 0.15s ease;
+    }
+    .task-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, .1);
+    }
+    .badge-todo        { background-color: #6c757d; }
+    .badge-in_progress { background-color: #fd7e14; }
+    .badge-done        { background-color: #198754; }
+
+    .task-description {
+        color: #6c757d;
+        font-size: .875rem;
+        /* Limite à 2 lignes avec ellipsis */
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    #toast-container {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 1100;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+
+{# ——— En-tête ——— #}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h1 class="h3 mb-0 fw-bold">Tâches</h1>
+        <p class="text-muted mb-0 small" id="task-count"></p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modal-create">
+        <i class="bi bi-plus-lg me-1"></i>Nouvelle tâche
+    </button>
+</div>
+
+{# ——— Filtres de statut ——— #}
+<div class="mb-3 d-flex gap-2 flex-wrap" id="filters">
+    <button class="btn btn-sm btn-dark active" data-filter="all">Toutes</button>
+    <button class="btn btn-sm btn-outline-secondary" data-filter="todo">À faire</button>
+    <button class="btn btn-sm btn-outline-warning" data-filter="in_progress">En cours</button>
+    <button class="btn btn-sm btn-outline-success" data-filter="done">Terminées</button>
+</div>
+
+{# ——— Liste des tâches ——— #}
+<div id="task-list">
+    <div class="text-center py-5 text-muted" id="loading">
+        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+        Chargement…
+    </div>
+</div>
+
+{# ——— État vide ——— #}
+<template id="tpl-empty">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        Aucune tâche à afficher.
+    </div>
+</template>
+
+{# ——— Card d'une tâche ——— #}
+<template id="tpl-task-card">
+    <div class="card task-card mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-start justify-content-between gap-3">
+                <div class="flex-grow-1 min-width-0">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge task-status-badge rounded-pill"></span>
+                        <h5 class="card-title mb-0 task-titre text-truncate"></h5>
+                    </div>
+                    <p class="task-description mb-2"></p>
+                    <small class="text-muted task-date"></small>
+                </div>
+                <div class="d-flex flex-column gap-2 flex-shrink-0">
+                    {# Select de changement de statut #}
+                    <select class="form-select form-select-sm task-status-select" aria-label="Modifier le statut">
+                        <option value="todo">À faire</option>
+                        <option value="in_progress">En cours</option>
+                        <option value="done">Terminé</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-danger task-delete-btn" title="Supprimer">
+                        <i class="bi bi-trash3"></i> Supprimer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+{# ——— Modal : créer une tâche ——— #}
+<div class="modal fade" id="modal-create" tabindex="-1" aria-labelledby="modal-create-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-semibold" id="modal-create-label">
+                    <i class="bi bi-plus-circle me-2"></i>Nouvelle tâche
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <form id="form-create" novalidate>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="input-titre" class="form-label fw-medium">Titre <span class="text-danger">*</span></label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="input-titre"
+                            name="titre"
+                            placeholder="Ex : Corriger le bug de connexion"
+                            required
+                            maxlength="255"
+                        >
+                        <div class="invalid-feedback" id="error-titre"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="input-description" class="form-label fw-medium">Description</label>
+                        <textarea
+                            class="form-control"
+                            id="input-description"
+                            name="description"
+                            rows="3"
+                            placeholder="Détails optionnels…"
+                        ></textarea>
+                    </div>
+                    <div class="mb-1">
+                        <label for="input-statut" class="form-label fw-medium">Statut</label>
+                        <select class="form-select" id="input-statut" name="statut">
+                            <option value="todo" selected>À faire</option>
+                            <option value="in_progress">En cours</option>
+                            <option value="done">Terminé</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="btn-submit-create">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="create-spinner" role="status"></span>
+                        Créer la tâche
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ——— Modal : confirmer la suppression ——— #}
+<div class="modal fade" id="modal-delete" tabindex="-1" aria-labelledby="modal-delete-label" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold text-danger" id="modal-delete-label">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Supprimer
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body pt-2">
+                Supprimer la tâche <strong id="delete-task-titre"></strong> ? Cette action est irréversible.
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-delete">
+                    <span class="spinner-border spinner-border-sm d-none me-1" id="delete-spinner" role="status"></span>
+                    Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ——— Conteneur de toasts ——— #}
+<div id="toast-container"></div>
+
+{% endblock %}
+
+{% block javascripts %}
+<script>
+'use strict';
+
+/* =========================================================================
+   API — couche d'accès aux endpoints REST
+   ========================================================================= */
+const TaskApi = {
+    BASE: '/api/tasks',
+
+    /** @returns {Promise<Array>} */
+    async fetchAll() {
+        const r = await fetch(this.BASE);
+        if (!r.ok) throw new Error('Impossible de charger les tâches.');
+        return r.json();
+    },
+
+    /** @param {Object} payload */
+    async create(payload) {
+        const r = await fetch(this.BASE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = r.headers.get('content-type')?.includes('application/json')
+            ? await r.json()
+            : null;
+        return { ok: r.ok, status: r.status, data };
+    },
+
+    /**
+     * @param {number} id
+     * @param {Object} payload Champs à modifier (PATCH partiel)
+     */
+    async update(id, payload) {
+        const r = await fetch(`${this.BASE}/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = r.headers.get('content-type')?.includes('application/json')
+            ? await r.json()
+            : null;
+        return { ok: r.ok, data };
+    },
+
+    /** @param {number} id */
+    async delete(id) {
+        const r = await fetch(`${this.BASE}/${id}`, { method: 'DELETE' });
+        return r.ok;
+    },
+};
+
+/* =========================================================================
+   Rendu — construction du DOM à partir des données
+   ========================================================================= */
+
+const STATUS_LABELS = {
+    todo:        'À faire',
+    in_progress: 'En cours',
+    done:        'Terminé',
+};
+
+/** Construit une card de tâche depuis le template HTML. */
+function buildTaskCard(task) {
+    const tpl  = document.getElementById('tpl-task-card');
+    const card = tpl.content.cloneNode(true);
+
+    card.querySelector('.task-titre').textContent       = task.titre;
+    card.querySelector('.task-description').textContent = task.description ?? '';
+    card.querySelector('.task-date').textContent        = formatDate(task.createdAt);
+
+    const badge = card.querySelector('.task-status-badge');
+    applyBadge(badge, task.statut);
+
+    const select = card.querySelector('.task-status-select');
+    select.value = task.statut;
+    select.addEventListener('change', () => onStatusChange(task.id, select));
+
+    const deleteBtn = card.querySelector('.task-delete-btn');
+    deleteBtn.addEventListener('click', () => openDeleteModal(task.id, task.titre));
+
+    const wrapper = card.querySelector('.card');
+    wrapper.dataset.taskId     = task.id;
+    wrapper.dataset.taskStatut = task.statut;
+
+    return card;
+}
+
+/** Applique la classe de couleur et le libellé au badge. */
+function applyBadge(el, statut) {
+    el.className     = `badge task-status-badge rounded-pill badge-${statut}`;
+    el.textContent   = STATUS_LABELS[statut] ?? statut;
+}
+
+/** Formate une date ISO en français court. */
+function formatDate(iso) {
+    return new Intl.DateTimeFormat('fr-FR', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+    }).format(new Date(iso));
+}
+
+/* =========================================================================
+   État de l'application
+   ========================================================================= */
+
+let allTasks      = [];   // cache local
+let activeFilter  = 'all';
+let pendingDelete = null; // { id, titre }
+
+const modalCreate = () => bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-create'));
+const modalDelete = () => bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-delete'));
+
+/* =========================================================================
+   Chargement et affichage de la liste
+   ========================================================================= */
+
+async function loadTasks() {
+    document.getElementById('task-list').innerHTML =
+        `<div class="text-center py-5 text-muted" id="loading">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>Chargement…
+        </div>`;
+
+    try {
+        allTasks = await TaskApi.fetchAll();
+        renderList();
+    } catch (e) {
+        showToast(e.message, 'danger');
+        document.getElementById('task-list').innerHTML = '';
+    }
+}
+
+/** Affiche les tâches filtrées. */
+function renderList() {
+    const filtered = activeFilter === 'all'
+        ? allTasks
+        : allTasks.filter(t => t.statut === activeFilter);
+
+    updateCount(filtered.length, allTasks.length);
+
+    const container = document.getElementById('task-list');
+    container.innerHTML = '';
+
+    if (filtered.length === 0) {
+        const tpl = document.getElementById('tpl-empty');
+        container.appendChild(tpl.content.cloneNode(true));
+        return;
+    }
+
+    filtered.forEach(task => container.appendChild(buildTaskCard(task)));
+}
+
+function updateCount(shown, total) {
+    const el = document.getElementById('task-count');
+    el.textContent = shown === total
+        ? `${total} tâche${total > 1 ? 's' : ''}`
+        : `${shown} / ${total} tâche${total > 1 ? 's' : ''}`;
+}
+
+/* =========================================================================
+   Création d'une tâche
+   ========================================================================= */
+
+document.getElementById('form-create').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearFormErrors();
+
+    const titre       = document.getElementById('input-titre').value.trim();
+    const description = document.getElementById('input-description').value.trim() || null;
+    const statut      = document.getElementById('input-statut').value;
+
+    setCreateLoading(true);
+
+    try {
+        const { ok, status, data } = await TaskApi.create({ titre, description, statut });
+
+        if (ok) {
+            allTasks.unshift(data);   // insère en tête (ordre décroissant)
+            renderList();
+            modalCreate().hide();
+            document.getElementById('form-create').reset();
+            showToast('Tâche créée avec succès.', 'success');
+            return;
+        }
+
+        if (status === 422 && data?.errors) {
+            showFormErrors(data.errors);
+        } else {
+            showToast('Une erreur est survenue lors de la création.', 'danger');
+        }
+    } catch (e) {
+        showToast('Erreur réseau — impossible de contacter l\'API.', 'danger');
+    } finally {
+        setCreateLoading(false);
+    }
+});
+
+function setCreateLoading(loading) {
+    document.getElementById('create-spinner').classList.toggle('d-none', !loading);
+    document.getElementById('btn-submit-create').disabled = loading;
+}
+
+function clearFormErrors() {
+    document.getElementById('input-titre').classList.remove('is-invalid');
+    document.getElementById('error-titre').textContent = '';
+}
+
+function showFormErrors(errors) {
+    if (errors.titre) {
+        document.getElementById('input-titre').classList.add('is-invalid');
+        document.getElementById('error-titre').textContent = errors.titre;
+    }
+}
+
+/* =========================================================================
+   Changement de statut en ligne
+   ========================================================================= */
+
+async function onStatusChange(id, selectEl) {
+    const newStatut = selectEl.value;
+    selectEl.disabled = true;
+
+    let ok, data;
+    try {
+        ({ ok, data } = await TaskApi.update(id, { statut: newStatut }));
+    } catch (e) {
+        selectEl.disabled = false;
+        showToast('Erreur réseau.', 'danger');
+        return;
+    }
+    selectEl.disabled = false;
+
+    if (!ok) {
+        // Annule le changement visuel si l'API refuse
+        const task = allTasks.find(t => t.id === id);
+        if (task) selectEl.value = task.statut;
+        showToast('Impossible de modifier le statut.', 'danger');
+        return;
+    }
+
+    // Met à jour le cache et le badge sans re-rendu complet
+    const idx = allTasks.findIndex(t => t.id === id);
+    if (idx !== -1) allTasks[idx] = data;
+
+    const card  = document.querySelector(`.card[data-task-id="${id}"]`);
+    const badge = card?.querySelector('.task-status-badge');
+    if (badge) applyBadge(badge, data.statut);
+    if (card)  card.dataset.taskStatut = data.statut;
+
+    showToast('Statut mis à jour.', 'success');
+
+    // Si un filtre actif exclut le nouveau statut, re-rendre
+    if (activeFilter !== 'all' && activeFilter !== data.statut) {
+        allTasks.splice(idx, 1);
+        renderList();
+    }
+}
+
+/* =========================================================================
+   Suppression avec confirmation
+   ========================================================================= */
+
+function openDeleteModal(id, titre) {
+    pendingDelete = { id, titre };
+    document.getElementById('delete-task-titre').textContent = titre;
+    modalDelete().show();
+}
+
+document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+    if (!pendingDelete) return;
+
+    setDeleteLoading(true);
+    const ok = await TaskApi.delete(pendingDelete.id);
+    setDeleteLoading(false);
+
+    if (ok) {
+        allTasks = allTasks.filter(t => t.id !== pendingDelete.id);
+        renderList();
+        modalDelete().hide();
+        showToast('Tâche supprimée.', 'secondary');
+    } else {
+        showToast('Impossible de supprimer la tâche.', 'danger');
+    }
+
+    pendingDelete = null;
+});
+
+function setDeleteLoading(loading) {
+    document.getElementById('delete-spinner').classList.toggle('d-none', !loading);
+    document.getElementById('btn-confirm-delete').disabled = loading;
+}
+
+/* =========================================================================
+   Filtres
+   ========================================================================= */
+
+document.getElementById('filters').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-filter]');
+    if (!btn) return;
+
+    document.querySelectorAll('#filters [data-filter]').forEach(b => {
+        b.classList.remove('active', 'btn-dark', 'btn-secondary', 'btn-warning', 'btn-success');
+        b.classList.add(b.dataset.filter === 'all'         ? 'btn-outline-secondary'
+                      : b.dataset.filter === 'in_progress' ? 'btn-outline-warning'
+                      : b.dataset.filter === 'done'        ? 'btn-outline-success'
+                      : 'btn-outline-secondary');
+    });
+
+    btn.classList.remove('btn-outline-secondary', 'btn-outline-warning', 'btn-outline-success');
+    btn.classList.add('active',
+        btn.dataset.filter === 'all'         ? 'btn-dark'
+      : btn.dataset.filter === 'in_progress' ? 'btn-warning'
+      : btn.dataset.filter === 'done'        ? 'btn-success'
+      : 'btn-secondary'
+    );
+
+    activeFilter = btn.dataset.filter;
+    renderList();
+});
+
+/* =========================================================================
+   Toast de notification
+   ========================================================================= */
+
+function showToast(message, type = 'secondary') {
+    const id   = `toast-${Date.now()}`;
+    const html = `
+        <div id="${id}" class="toast align-items-center text-bg-${type} border-0 show" role="alert" aria-live="assertive">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>`;
+
+    const container = document.getElementById('toast-container');
+    container.insertAdjacentHTML('beforeend', html);
+
+    const el    = document.getElementById(id);
+    const toast = new bootstrap.Toast(el, { delay: 3500 });
+    toast.show();
+    el.addEventListener('hidden.bs.toast', () => el.remove());
+}
+
+/* =========================================================================
+   Réinitialise le formulaire à la fermeture du modal
+   ========================================================================= */
+document.getElementById('modal-create').addEventListener('hidden.bs.modal', () => {
+    document.getElementById('form-create').reset();
+    clearFormErrors();
+});
+
+/* =========================================================================
+   Initialisation
+   ========================================================================= */
+loadTasks();
+</script>
+{% endblock %}

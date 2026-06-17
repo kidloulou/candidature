@@ -1,0 +1,54 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Task API
+            description: API REST de gestion de tâches — Symfony 7
+            version: '1.0.0'
+        components:
+            schemas:
+                Task:
+                    type: object
+                    properties:
+                        id:          { type: integer, example: 1 }
+                        titre:       { type: string,  example: 'Corriger le bug de login' }
+                        description: { type: string,  nullable: true, example: 'Vérifier les tokens JWT' }
+                        statut:
+                            type: string
+                            enum: [todo, in_progress, done]
+                            example: todo
+                        createdAt:   { type: string, format: date-time, example: '2026-06-17T10:00:00+00:00' }
+                        updatedAt:   { type: string, format: date-time, example: '2026-06-17T10:05:00+00:00' }
+                TaskInput:
+                    type: object
+                    required: [titre]
+                    properties:
+                        titre:       { type: string, maxLength: 255, example: 'Corriger le bug de login' }
+                        description: { type: string, nullable: true, example: 'Détails optionnels' }
+                        statut:
+                            type: string
+                            enum: [todo, in_progress, done]
+                            default: todo
+                TaskPatch:
+                    type: object
+                    properties:
+                        titre:       { type: string, maxLength: 255, example: 'Nouveau titre' }
+                        description: { type: string, nullable: true, example: 'Nouvelle description' }
+                        statut:
+                            type: string
+                            enum: [todo, in_progress, done]
+                ValidationError:
+                    type: object
+                    properties:
+                        errors:
+                            type: object
+                            additionalProperties: { type: string }
+                            example: { titre: 'Le titre ne peut pas être vide.' }
+                NotFound:
+                    type: object
+                    properties:
+                        error: { type: string, example: 'Tâche #42 introuvable.' }
+
+    # Scanne uniquement les routes préfixées /api/
+    areas:
+        path_patterns:
+            - ^/api(?!/doc$)
