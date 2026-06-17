@@ -1,5 +1,8 @@
 #!/bin/bash
 set -e
+set -x
+
+echo "APP_ENV=$APP_ENV"
 
 echo "→ Installation des dépendances (sans dev)..."
 composer install --no-dev --optimize-autoloader
