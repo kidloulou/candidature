@@ -45,9 +45,6 @@ class Task
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $updatedAt;
 
-    /**
-     * Initialise createdAt et updatedAt à la création de l'entité.
-     */
     #[ORM\PrePersist]
     public function onPrePersist(): void
     {
@@ -63,19 +60,16 @@ class Task
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    /** @return int|null */
     public function getId(): ?int
     {
         return $this->id;
     }
 
-    /** @return string */
     public function getTitre(): string
     {
         return $this->titre;
     }
 
-    /** @param string $titre */
     public function setTitre(string $titre): static
     {
         $this->titre = $titre;
@@ -83,13 +77,11 @@ class Task
         return $this;
     }
 
-    /** @return string|null */
     public function getDescription(): ?string
     {
         return $this->description;
     }
 
-    /** @param string|null $description */
     public function setDescription(?string $description): static
     {
         $this->description = $description;
@@ -97,13 +89,11 @@ class Task
         return $this;
     }
 
-    /** @return string */
     public function getStatut(): string
     {
         return $this->statut;
     }
 
-    /** @param string $statut */
     public function setStatut(string $statut): static
     {
         $this->statut = $statut;
@@ -111,7 +101,6 @@ class Task
         return $this;
     }
 
-    /** @return \DateTimeImmutable */
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;

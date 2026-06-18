@@ -16,11 +16,6 @@ class TaskRepository extends ServiceEntityRepository
         parent::__construct($registry, Task::class);
     }
 
-    /**
-     * Retourne toutes les tâches, ordonnées par date de création décroissante.
-     *
-     * @return Task[]
-     */
     public function findAllOrderedByDate(): array
     {
         return $this->createQueryBuilder('t')

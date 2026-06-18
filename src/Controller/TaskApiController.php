@@ -22,9 +22,6 @@ class TaskApiController extends AbstractController
         private readonly SerializerInterface $serializer,
     ) {}
 
-    /**
-     * Liste toutes les tâches, ordonnées par date de création décroissante.
-     */
     #[Route('', name: 'list', methods: ['GET'])]
     #[OA\Get(
         path: '/api/tasks',
@@ -47,9 +44,6 @@ class TaskApiController extends AbstractController
         return $this->json($this->normalizeTasks($tasks));
     }
 
-    /**
-     * Crée une nouvelle tâche à partir du corps JSON fourni.
-     */
     #[Route('', name: 'create', methods: ['POST'])]
     #[OA\Post(
         path: '/api/tasks',
@@ -103,9 +97,6 @@ class TaskApiController extends AbstractController
         return $this->json($this->normalizeTask($result), Response::HTTP_CREATED);
     }
 
-    /**
-     * Modifie partiellement une tâche. Seuls les champs présents dans le body sont mis à jour.
-     */
     #[Route('/{id}', name: 'update', methods: ['PATCH'], requirements: ['id' => '\d+'])]
     #[OA\Patch(
         path: '/api/tasks/{id}',
@@ -175,9 +166,6 @@ class TaskApiController extends AbstractController
         return $this->json($this->normalizeTask($result));
     }
 
-    /**
-     * Supprime définitivement une tâche. Retourne 204 sans corps.
-     */
     #[Route('/{id}', name: 'delete', methods: ['DELETE'], requirements: ['id' => '\d+'])]
     #[OA\Delete(
         path: '/api/tasks/{id}',
@@ -216,13 +204,7 @@ class TaskApiController extends AbstractController
         return $this->json(null, Response::HTTP_NO_CONTENT);
     }
 
-    /**
-     * Décode le corps JSON de la requête.
-     * Retourne null si le contenu est absent ou malformé.
-     *
-     * @param Request $request
-     * @return array<string, mixed>|null
-     */
+    // retourne null si le body est vide ou invalide
     private function decodeJson(Request $request): ?array
     {
         $content = $request->getContent();
@@ -240,12 +222,6 @@ class TaskApiController extends AbstractController
         return is_array($data) ? $data : null;
     }
 
-    /**
-     * Convertit une tâche en tableau associatif sérialisable.
-     *
-     * @param Task $task
-     * @return array<string, mixed>
-     */
     private function normalizeTask(Task $task): array
     {
         return [
@@ -258,12 +234,6 @@ class TaskApiController extends AbstractController
         ];
     }
 
-    /**
-     * Convertit une liste de tâches en tableau de tableaux associatifs.
-     *
-     * @param Task[] $tasks
-     * @return array<int, array<string, mixed>>
-     */
     private function normalizeTasks(array $tasks): array
     {
         return array_map($this->normalizeTask(...), $tasks);
