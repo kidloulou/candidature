@@ -56,9 +56,7 @@ class Task
         $this->updatedAt = $now;
     }
 
-    /**
-     * Met à jour updatedAt avant chaque mise à jour en base.
-     */
+
     #[ORM\PreUpdate]
     public function onPreUpdate(): void
     {

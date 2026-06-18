@@ -3,8 +3,8 @@
 Application de gestion de tâches construite avec Symfony 7, Doctrine ORM et SQLite.
 Elle expose une API REST JSON consommée par une interface web Twig + JS vanilla, avec une doc Swagger générée automatiquement.
 
-**Démo en ligne :** https://candidature-production.up.railway.app/tasks  
-**Swagger UI :** https://candidature-production.up.railway.app/api/doc
+**Démo en ligne :** https://web-production-aa39.up.railway.app/tasks
+**Swagger UI :** https://web-production-aa39.up.railway.app/api/doc
 
 ---
 
